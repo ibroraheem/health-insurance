@@ -12,7 +12,9 @@ app.use(express.json())
 app.get('/', (req, res) => {
     res.status(200).send('Hello World')
 })
-app.use('', require('./routes/adminRoutes'))
+app.use('/admin', require('./routes/adminRoutes'))
+app.use('/hospital', require('./routes/hospitalRoutes'))
+app.use('', require('./routes/userRoutes'))
 const PORT = process.env.PORT || 8080
 
 app.listen(PORT, () => {

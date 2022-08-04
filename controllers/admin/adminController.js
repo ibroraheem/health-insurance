@@ -17,7 +17,8 @@ const register = async (req, res) => {
         await newAdmin.save()
         const payload = {
             admin: {
-                id: newAdmin.id
+                id: newAdmin.id,
+                role: newAdmin.role
             }
         }
         jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: 360000}, (err, token) => {
@@ -44,7 +45,8 @@ const login = async (req, res) => {
         }
         const payload = {
             admin: {
-                id: admin.id
+                id: admin.id,
+                role: admin.role
             }
         }
         jwt.sign(payload, process.env.JWT_SECRET, {expiresIn: 360000}, (err, token) => {
@@ -98,5 +100,21 @@ const forgotPassword = async (req, res) => {
         res.status(500).send('Server Error')
     }
 }
-
-module.exports = {register, login, forgotPassword}
+const resetPassword = async (req, res) =>{
+    const{password} = req.body
+    try{
+        const payload = jwt.verify(req.params.token, process.env.JWT_SECRET)
+        const admin = await Admin.findById(payload.admin.id)
+        if(!admin){
+            return res.status(400).json({msg: 'Admin not found'})
+        }
+        const salt = await bcrypt.genSalt(10)
+        admin.password = await bcrypt.hash(password, salt)
+        await admin.save()
+        res.json({msg: 'Password changed'})
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
+module.exports = {register, login, forgotPassword, resetPassword}

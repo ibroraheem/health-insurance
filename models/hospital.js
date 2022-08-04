@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const CareGiverSchema = new mongoose.Schema({
+const HospitalSchema = new mongoose.Schema({
     name:{
         type: String,
         required: true
@@ -17,14 +17,14 @@ const CareGiverSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    type:{
+    role:{
         type: String,
-        unique: true,
-        enum: ['hospital', 'lab', 'pharmacy']
+        required: true,
+        default: 'hospital'
     }
     
 })
 
-const CareGiver = mongoose.model('CareGiver', CareGiverSchema)
+const Hospital = mongoose.model('Hospital', HospitalSchema)
 
-module.exports = CareGiver
+module.exports = Hospital
