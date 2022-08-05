@@ -80,7 +80,10 @@ const forgotPassword = async (req, res) => {
 }
 
     const resetPassword = async (req, res) => {
-        const token = req.headers.authorization.split(' ')[1]
+        const token = req.body.token || req.query.token || req.headers["x-access-token"];
+        if(!token){
+            return res.status(403).send("A token is required for this operation")
+        }
         const decoded = jwt.verify(token, process.env.JWT_SECRET)
         const { password } = req.body
         try {
