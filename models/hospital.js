@@ -1,29 +1,38 @@
 const mongoose = require('mongoose');
 const HospitalSchema = new mongoose.Schema({
-    name:{
+    name: {
         type: String,
         required: true
     },
-    email:{
+    email: {
         type: String,
         required: true,
         unique: true
-    }, 
-    password:{
+    },
+    password: {
         type: String,
         required: true
     },
-    address:{
+    address: {
         type: String,
         required: true
     },
-    role:{
+    role: {
         type: String,
         required: true,
         default: 'hospital'
+    },
+    verified: {
+        type: Boolean,
+        default: false
+    },
+    patients: {
+        type: [mongoose.Schema.Types.ObjectId],
+        ref: 'Patient'
     }
-    
-})
+},
+    { timestamps: true }
+)
 
 const Hospital = mongoose.model('Hospital', HospitalSchema)
 

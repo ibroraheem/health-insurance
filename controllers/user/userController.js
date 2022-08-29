@@ -1,6 +1,7 @@
 const User = require('../../models/user')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
+const Payment = require('../../models/payment')
 const nodemailer = require('nodemailer')
 require('dotenv').config()
 
@@ -43,7 +44,9 @@ const login = async (req, res) => {
         const payload = {
             user: {
                 id: user.id,
-                role: user.role
+                name: user.name,
+                role: user.role,
+                plan: user.plan
             }
         }
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 360000 }, (err, token) => {
@@ -79,25 +82,111 @@ const forgotPassword = async (req, res) => {
     }
 }
 
-    const resetPassword = async (req, res) => {
-        const token = req.body.token || req.query.token || req.headers["x-access-token"];
-        if(!token){
-            return res.status(403).send("A token is required for this operation")
-        }
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        const { password } = req.body
-        try {
-            const user = await User.findOne({ _id: decoded.user.id })
-            if (!user) {
-                return res.status(400).json({ msg: 'User not found' })
-            }
-            const salt = await bcrypt.genSalt(10)
-            user.password = await bcrypt.hash(password, salt)
-            user.save()
-        } catch (error) {
-            console.log(error)
-            res.status(500).send('Server Error')
-        }
+const resetPassword = async (req, res) => {
+    const token = req.headers.authorization.split(' ')[1]
+    if (!token) {
+        return res.status(403).send("A token is required for this operation")
     }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const { password } = req.body
+    try {
+        const user = await User.findOne({ _id: decoded.user.id })
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found' })
+        }
+        const salt = await bcrypt.genSalt(10)
+        user.password = await bcrypt.hash(password, salt)
+        user.save()
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
+const changePassword = async (req, res) => {
+    const token = req.headers.authorization.split(' ')[1]
+    if (!token) {
+        return res.status(403).send("A token is required for this operation")
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded) return res.status(403).send("A token is required for this operation")
+    const { oldPassword, newPassword } = req.body
+    try {
+        const user = await User.findOne({ _id: decoded.user.id })
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found' })
+        }
+        const salt = await bcrypt.genSalt(10)
+        const hashOld = bcrypt.hash(oldPassword, salt)
+        const isMatch = bcrypt.compare(hashOld, user.password)
+        if (!isMatch) {
+            return res.status(400).json({ msg: 'Invalid credentials' })
+        } else {
+            user.password = await bcrypt.hash(newPassword, salt)
+            user.save()
+            res.status(200).json({ msg: 'Password changed' })
+        }
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
 
-    module.exports = { register, login, forgotPassword, resetPassword }
+const logout = async (req, res) => {
+    try {
+        let token = req.headers.authorization.split(' ')[1]
+        if (!token) {
+            return res.status(403).send("A token is required for this operation")
+        } else {
+            token = jwt.sign({ token: token }, 'secret', { expiresIn: 1 })
+        }
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
+const selectPlan = async (req, res) => {
+    const token = req.header.authorization.split(' ')[1]
+    if (!token) {
+        return res.status(403).send("A token is required for this operation")
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded) return res.status(403).send("A token is required for this operation")
+    const { plan, package } = req.body
+    try {
+        const user = await User.findOne({ _id: decoded.user.id })
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found' })
+        }
+        user.plan = plan
+        user.package = package
+        user.save()
+        res.status(200).json({ msg: 'Plan selected' })
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
+
+const getPayments = async (req, res) => {
+    const token = req.headers.authorization.split(' ')[1]
+    if (!token) {
+        return res.status(403).send("A token is required for this operation")
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded) return res.status(403).send("A token is required for this operation")
+    try {
+        const payment = await Payment.find({ user: decoded.user.id })
+        if (!payment) {
+            return res.status(400).json({ msg: 'Payment not found' })
+        }
+        res.status(200).json(payment)
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
+
+
+
+
+module.exports = { register, login, forgotPassword, resetPassword, changePassword, logout, selectPlan, getPayments }

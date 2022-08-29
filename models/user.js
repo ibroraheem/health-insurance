@@ -54,16 +54,27 @@ const UserSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    preferredHospital: {
-        type: String,
-        required: true
+    hospital: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Hospital'
     },
     role: {
         type: String,
         required: true,
         default: 'user'
-    }
-})
+    },
+    package: {
+        type: String,
+        enum: ['Gold', 'Silver', 'Platinum'],
+    },
+    plan: {
+        type: String,
+        enum: ['individual', 'family', 'business', 'senior citizen'],
+    },
+
+},
+    {timestamps: true}
+)
 
 const User = mongoose.model('User', UserSchema)
 
