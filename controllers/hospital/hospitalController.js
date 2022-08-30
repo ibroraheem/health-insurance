@@ -3,6 +3,7 @@ const User = require('../../models/user')
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const nodemailer = require('nodemailer')
+const request = require('request')
 require('dotenv').config()
 
 const register = async (req, res) => {
@@ -170,5 +171,48 @@ const getPatient = async (req, res) => {
         res.status(500).send('Server Error')
     }
 }
+const verifyHospital = async (req, res) => {
+    const bearerToken = req.headers.authorization.split(' ')[1]
+    if (!bearerToken) {
+        return res.status(400).json({ msg: 'No token provided' })
+    }
+    try {
+        const decoded = jwt.verify(bearerToken, process.env.JWT_SECRET)
+        const hospital = await Hospital.findById(decoded.hospital.id)
+        if (!hospital) {
+            return res.status(400).json({ msg: 'Hospital not found' })
+        }
+        const { companyName, registrationNumber, companyType } = req.body
+        const company_name = companyName.toLowerCase()
+        request({
+            url: 'https://api.myidentitypay.com/api/v2/biometrics/merchant/data/verification/cac',
+            method: 'POST',
+            headers: {
+                'x-api-key': process.env.ID_PASS_API_KEY,
+                'app-id': process.env.APP_ID,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                rc_number: registrationNumber,
+                company_name: company_name,
+                company_type: companyType
+            })
+        }, (err, response, body) => {
+            if (err) throw err
+            if (!response) return res.status(500).send('Server Error')
+            const data = JSON.parse(body)
+            if (data.status === 'success') {
+                hospital.verified = true
+                hospital.save()
+                res.json({ msg: 'Hospital verified' })
+            } else {
+                res.status(400).json({ msg: 'Hospital not verified' })
+            }
+        })
 
-module.exports = { register, login, forgotPassword, resetPassword, getPatients, getPatient }
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
+module.exports = { register, login, forgotPassword, resetPassword, getPatients, getPatient, verifyHospital }

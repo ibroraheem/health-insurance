@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const Payment = require('../../models/payment')
 const nodemailer = require('nodemailer')
+const request = require('request')
+const TMClient = require('textmagic-rest-client')
 require('dotenv').config()
 
 const register = async (req, res) => {
@@ -151,12 +153,13 @@ const selectPlan = async (req, res) => {
     }
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     if (!decoded) return res.status(403).send("A token is required for this operation")
-    const { plan, package } = req.body
+    const { plan, package, amount } = req.body
     try {
         const user = await User.findOne({ _id: decoded.user.id })
         if (!user) {
             return res.status(400).json({ msg: 'User not found' })
         }
+        await Payment.create({ user: user._id, amount: amount })
         user.plan = plan
         user.package = package
         user.save()
@@ -186,7 +189,60 @@ const getPayments = async (req, res) => {
     }
 }
 
+const verifyUser = async (req, res) => {
+    const token = req.headers.authorization.split(' ')[1]
+    if (!token) {
+        return res.status(403).send("A token is required for this operation")
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!decoded) return res.status(403).send("A token is required for this operation")
+    try {
+        const user = await User.findOne({ _id: decoded.user.id })
+        if (!user) {
+            return res.status(400).json({ msg: 'User not found' })
+        }
+        const { firstName, lastName, bvn } = req.body
+        if (!firstName || !lastName || !bvn) {
+            return res.status(400).json({ msg: 'Please fill all the fields' })
+        }
+        const name = firstName + ' ' + lastName
+        if (!name.includes(user.name)) {
+            return res.status(400).json({ msg: 'Name does not match' })
+        }
+        if (bvn.length !== 11) {
+            return res.status(400).json({ msg: 'BVN is not valid' })
+        }
+        request({
+            url: 'https://api.myidentitypay.com/api/v2/biometrics/merchant/data/verification/bvn',
+            method: 'POST',
+            headers: {
+                'x-api-key': process.env.ID_PASS_API_KEY,
+                'app-id': process.env.APP_ID,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                number: bvn,
+            })
+        }, (error, response, body) => {
+            if (error) {
+                return res.status(500).send('Server Error')
+            }
+            if (!response) return res.status(500).send('Server Error')
+            const data = JSON.parse(body)
+            if (data.response_code === 00 || data.status === true && data.bvn_data.firstName === firstName && data.bvn_data.lastName === lastName) {
+                user.verified = true
+                user.bvn = bvn
+                user.save()
+                res.status(200).json({ msg: 'BVN verified' })
+            } else {
+                return res.status(400).json({ msg: 'BVN not verified' })
+            }
+        })
+    } catch (error) {
+        console.log(error)
+        res.status(500).send('Server Error')
+    }
+}
 
 
-
-module.exports = { register, login, forgotPassword, resetPassword, changePassword, logout, selectPlan, getPayments }
+module.exports = { register, login, forgotPassword, resetPassword, changePassword, logout, selectPlan, getPayments, verifyUser }
