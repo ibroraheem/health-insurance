@@ -19,8 +19,11 @@ const register = async (req, res) => {
         newUser.password = await bcrypt.hash(password, salt)
         const payload = {
             user: {
-                id: newUser.id,
-                role: newUser.role
+                id: user.id,
+                name: user.name,
+                role: user.role,
+                verified: user.verified,
+                plan: user.plan
             }
         }
         jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 360000 })
@@ -48,6 +51,7 @@ const login = async (req, res) => {
                 id: user.id,
                 name: user.name,
                 role: user.role,
+                verified: user.verified,
                 plan: user.plan
             }
         }
